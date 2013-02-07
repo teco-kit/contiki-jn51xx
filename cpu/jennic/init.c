@@ -345,7 +345,7 @@ misalign_test()
 void
 init_hardware()
 {
-  init_hardware(38400);
+  init_hardware_baud(38400);
 }
 
 void
