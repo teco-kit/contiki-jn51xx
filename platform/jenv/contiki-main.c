@@ -11,13 +11,14 @@
 #include "dev/l3g4200d-sensor.h"
 #include "dev/temperature-sensor.h"
 #include "dev/pressure-sensor.h"
+#include "dev/SHT21-sensor.h"
 #include "dev/button-sensor.h"
 #include "dev/mag-sensor.h"
 #include "dev/acc-sensor.h"
 #include "AppHardwareApi.h"
 
 PROCINIT(&etimer_process, &tcpip_process, &jennic_bootloader_process, &sensors_process);
-SENSORS(&lightlevel_sensor, &l3g4200d_sensor, &mag_sensor, &acc_sensor, &proximity_sensor, &temperature_sensor, &pressure_sensor, &button_sensor);
+SENSORS(&lightlevel_sensor, &l3g4200d_sensor, &mag_sensor, &acc_sensor, &proximity_sensor, &temperature_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &button_sensor);
 
 void
 init_net(void)

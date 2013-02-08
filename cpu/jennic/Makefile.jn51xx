@@ -89,5 +89,5 @@ endif
 	$(OBJCOPY) $^ -O binary $@
 
 %.u: %.$(TARGET).hex
-	#sudo jenprog -c ftdi $<
-	jenprog $<
+	sudo jenprog -c serial -t /dev/ttyACM0 $<
+	#jenprog $<
