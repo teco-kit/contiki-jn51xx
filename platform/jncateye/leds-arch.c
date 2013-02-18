@@ -63,7 +63,7 @@ leds_arch_get(void)
 void
 leds_arch_set(unsigned char c)
 {
-  if (c & LEDS_ALL)
+  if (c == LEDS_ALL)
     leds = (1<<3) | (1<<2);
   else
     leds = (1<<5) | (1<<1) | (1<<6);
