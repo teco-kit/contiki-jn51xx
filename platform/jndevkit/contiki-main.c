@@ -7,7 +7,7 @@
 #include "dev/lightlevel-sensor.h"
 #include "dev/button-sensor.h"
 
-PROCINIT(&etimer_process, &tcpip_process, &jennic_bootloader_process);
+PROCINIT(&etimer_process, &tcpip_process, &jennic_bootloader_process,&sensors_process);
 SENSORS(&lightlevel_sensor, &button_sensor);
 
 void
