@@ -30,6 +30,7 @@
  */
 
 #include <sys/clock.h>
+#include <sys/rtimer.h>
 #include <stdbool.h>
 #include <AppHardwareApi.h>
 #include "hrclock.h"
@@ -39,14 +40,33 @@
 #define TICKS_TO_USEC  (16)
 #define TICK_TIMER_MAX (0x0fffffff)
 
+/* enable/disable interrupts */
+#define ENABLE_INTERRUPTS();  {  register uint32 ru32CtrlReg; asm volatile ("l.mfspr %0, r0, 17;" :"=r"(ru32CtrlReg) : ); ru32CtrlReg |= 6; asm volatile ("l.mtspr r0, %0, 17;" : :"r"(ru32CtrlReg)); } 
+
+#define DISABLE_INTERRUPTS(); { register uint32 ru32CtrlReg; asm volatile ("l.mfspr %0, r0, 17;" :"=r"(ru32CtrlReg) : ); ru32CtrlReg &= 0xfffffff9; asm volatile ("l.mtspr r0, %0, 17;" : :"r"(ru32CtrlReg)); }
+
 static bool ticking = false;
+static uint32_t tick_timer_interval;
+static hrclock_t ticks = 0;
+static uint32_t last_tick = 0;
+
+void 
+tick_timer_int(uint32 u32Device, uint32 u32ItemBitmap)
+{
+  ticks += tick_timer_interval - last_tick;
+  last_tick = 0;
+  rtimer_run_next();
+}
 
 void
 clock_init()
 {
-  vAHI_TickTimerInterval(TICK_TIMER_MAX);
-  vAHI_TickTimerConfigure(E_AHI_TICK_TIMER_CONT);
+  tick_timer_interval = TICK_TIMER_MAX;
+  vAHI_TickTimerInterval(tick_timer_interval);
   vAHI_TickTimerWrite(0);
+  vAHI_TickTimerIntEnable(1);
+  vAHI_TickTimerRegisterCallback(&tick_timer_int);
+  vAHI_TickTimerConfigure(E_AHI_TICK_TIMER_RESTART);
   ticking = true;
 }
 
@@ -75,13 +95,76 @@ clock_delay(unsigned int i)
     ;
 }
 
+void 
+rtimer_arch_init()
+{
+}
+
+
+rtimer_clock_t 
+rtimer_arch_now()
+{
+  if(!ticking) clock_init();
+#ifdef JENNIC_CONF_TIMESYNC 
+  return clock_synced_hrtime()/(1000);
+#else
+  return clock_hrtime()/(1000);
+#endif
+}
+
+void
+rtimer_arch_schedule(rtimer_clock_t t)
+{
+  uint32_t temp_tick = u32AHI_TickTimerRead();
+#ifdef JENNIC_CONF_TIMESYNC 
+  hrclock_t usecs_required = (t * 1000) - clock_synced_hrtime();
+#else
+  hrclock_t usecs_required = (t * 1000) - clock_hrtime();
+#endif
+  uint32_t ticks_required = usecs_required * TICKS_TO_USEC;
+  tick_timer_interval = temp_tick + ticks_required;
+  vAHI_TickTimerInterval(tick_timer_interval);
+}
+
 /* return time in micro-seconds after this functions has completed. */
 hrclock_t
 clock_hrtime()
 {
-  static hrclock_t time = 0;
-  if(!ticking) clock_init();
-  time += u32AHI_TickTimerRead()/TICKS_TO_USEC;
-  vAHI_TickTimerWrite(4);
-  return time;
+  DISABLE_INTERRUPTS();
+  uint32_t temp_tick = u32AHI_TickTimerRead();
+  if (temp_tick > last_tick) {
+    ticks += (temp_tick - last_tick); 
+    last_tick = temp_tick;
+  } 
+  ENABLE_INTERRUPTS();
+  return ticks/TICKS_TO_USEC;
 }
+
+
+#ifdef JENNIC_CONF_TIMESYNC
+
+#include "uip.h"
+#include "ieee802.h"
+
+static uint8_t synced = 0;
+static hrclock_t offset = 0;
+uint8_t clock_synced()
+{
+  return synced;
+}
+
+hrclock_t clock_synced_hrtime()
+{
+  return clock_hrtime() + offset;
+}
+
+void clock_synchronize()
+{
+  synced = 1;
+  memcpy(&offset, UIP_ICMP6_TIMESTAMP, sizeof(hrclock_t));
+  offset = offset + 1800 - ieee_get_last_timestamp();   //offset = master_clock - recved_clock + time_delay
+  //printf("new offset\r\n");
+}
+
+#endif
+
