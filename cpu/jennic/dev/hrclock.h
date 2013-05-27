@@ -41,4 +41,16 @@ typedef uint64_t hrclock_t;
 /* return current time in nano-seconds */
 hrclock_t clock_hrtime();
 
+#ifdef JENNIC_CONF_TIMESYNC
+#define UIP_ICMP6_TIMESTAMP  ((hrclock_t *)&uip_buf[uip_l2_l3_icmp_hdr_len])
+#define ICMP6_TIMESYNC 250
+
+uint8_t clock_synced();
+
+hrclock_t clock_synced_hrtime();
+
+void clock_synchronize();
+
+#endif
+
 #endif /* CPU/JENNIC/DEV/HRCLOCK_H_ */

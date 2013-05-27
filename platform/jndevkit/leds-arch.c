@@ -57,7 +57,7 @@ leds_arch_set(unsigned char c)
 {
   leds = c;
 
-  if ((c&LEDS_ALL) || (c&LEDS_RED && c&LEDS_GREEN))
+  if ((c==LEDS_ALL) || (c&LEDS_RED && c&LEDS_GREEN))
     vAHI_DioSetDirection(0, E_AHI_DIO16_INT|
                             E_AHI_DIO17_INT);
   else if (c&LEDS_RED)

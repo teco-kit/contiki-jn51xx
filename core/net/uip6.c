@@ -79,6 +79,16 @@
 
 #include <string.h>
 
+#ifndef JENNIC_CONF_TIMESYNC
+# define USE_TS 0
+#else
+# define USE_TS JENNIC_CONF_TIMESYNC
+#endif
+
+#if USE_TS
+# include "hrclock.h"
+#endif
+
 /*---------------------------------------------------------------------------*/
 /* For Debug, logging, statistics                                            */
 /*---------------------------------------------------------------------------*/
@@ -163,6 +173,8 @@ u8_t uip_ext_opt_offset = 0;
 #define UIP_EXT_HDR_OPT_BUF            ((struct uip_ext_hdr_opt *)&uip_buf[uip_l2_l3_hdr_len + uip_ext_opt_offset])
 #define UIP_EXT_HDR_OPT_PADN_BUF  ((struct uip_ext_hdr_opt_padn *)&uip_buf[uip_l2_l3_hdr_len + uip_ext_opt_offset])
 #define UIP_ICMP6_ERROR_BUF            ((struct uip_icmp6_error *)&uip_buf[uip_l2_l3_icmp_hdr_len])
+
+
 /** @} */
 /** \name Buffer variables
  *  @{
@@ -1348,6 +1360,12 @@ uip_process(u8_t flag)
       UIP_STAT(++uip_stat.icmp.recv);
       uip_len = 0;
       break;
+#if USE_TS
+    case ICMP6_TIMESYNC:
+      clock_synchronize();
+      uip_len = 0;
+      break;
+#endif
     default:
       //PRINTF("Unknown icmp6 message type %d\n", UIP_ICMP_BUF->type);
       UIP_STAT(++uip_stat.icmp.drop);
