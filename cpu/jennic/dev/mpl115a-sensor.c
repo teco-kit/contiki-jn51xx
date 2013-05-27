@@ -80,7 +80,8 @@ PT_THREAD(mplptcb(bool status))
 
   /* measurement cycle is at least one ms, we take 5ms here
    * to not overload the system */
-  ctimer_set(&timer, CLOCK_SECOND/200, mplptcb, NULL);
+  ctimer_set(&timer, CLOCK_SECOND/20, mplptcb, NULL);
+  //ctimer_set(&timer, CLOCK_SECOND/200, mplptcb, NULL);
   ctimer_stop(&timer);
 
   while (active)

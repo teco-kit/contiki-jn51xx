@@ -43,7 +43,7 @@
 #include <AppHardwareApi.h>
 #include "gdb2.h"
 
-LIST(irqs);
+LIST(_irqs);
 
 #define AP_SAMPLE_READY 0x03
 
@@ -55,58 +55,121 @@ static volatile bool  adc_enabled = false;
 static volatile irq_t current_channel = 0;
 static void adc_prepare_next();
 static void adc_enable();
+static struct irq_handle *last_item = NULL;
 
-static void
-common_handle(u32_t dev, u32_t irqsrc)
+static uint32_t to_adcsrc(uint32_t x);
+
+
+PROCESS_NAME(adc_sample_process);
+PROCESS(adc_sample_process, "adc_sample_process");
+
+PROCESS_THREAD(adc_sample_process, ev, data)
 {
-  struct irq_handle *item = NULL;
+  static size_t i;
+  static struct etimer et;
 
-  /* call the callback for the specific irq */
-  for (item = list_head(irqs); item; item = item->next)
-    if (item->irqsrc & irqsrc || item->irqsrc & current_channel)
-      item->callback(item->irqsrc);
+  PROCESS_BEGIN();
+  PROCESS_PAUSE();
 
-  if (dev == E_AHI_DEVICE_ANALOGUE)
+  etimer_set(&et, CLOCK_SECOND/2000);
+
+  // really slow while loop for sampling really slow sensors
+  while (1)
   {
-    u16AHI_AdcRead(); /* make sure the result has been consumed */
-    adc_prepare_next();
+    PROCESS_YIELD_UNTIL(ev==PROCESS_EVENT_TIMER);
+
+
+      vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT,
+                     ADC_INPUT_RANGE_1,
+                     IRQ_ADC1);
+      vAHI_AdcStartSample();
+      // wait until complete
+      while(!bAHI_AdcPoll());
+
+
+  /*  
+    // check if adc value ready
+    if(bAHI_AdcPoll()==false){
+        // we assume the last item was processed successfully
+        last_item->callback(last_item->irqsrc);
+        // take next item in list
+        adc_prepare_next();
+    }
+    */
+    //printf("yeah\n");
+    etimer_restart(&et);
+    
   }
+
+  PROCESS_END();
 }
+
+
+//static void
+//common_handle(u32_t dev, u32_t irqsrc)
+//{
+//  struct irq_handle *item = NULL;
+
+//  /* call the callback for the specific irq */
+//  for (item = list_head(irqs); item; item = item->next)
+//    if (item->irqsrc & irqsrc || item->irqsrc & current_channel)
+//      item->callback(item->irqsrc);
+
+//  if (dev == E_AHI_DEVICE_ANALOGUE)
+//  {
+//    u16AHI_AdcRead(); /* make sure the result has been consumed */
+    // adc next
+//  }
+//}
 
 void
 irq_init()
 {
-  list_init(irqs);
-  vAHI_APRegisterCallback(common_handle);
-  vAHI_SysCtrlRegisterCallback(common_handle);
+  list_init(_irqs);
+  //vAHI_APRegisterCallback(common_handle);
+  //vAHI_SysCtrlRegisterCallback(common_handle);
 }
 
 void
 irq_add(const struct irq_handle *handle)
 {
-  list_add(irqs, handle);
 
-  /* is this is not a adc irq, then adc will be disabled from the irq again */
-  if (!adc_enabled) { adc_enable(); adc_prepare_next(); }
+  list_add(_irqs, handle);
+  /* if this is not a adc irq, then adc will be disabled from the irq again */
+  if (!adc_enabled) { 
+      adc_enabled = true;
+    //  process_start(&adc_sample_process, NULL);
+      adc_enable(); 
+//      adc_prepare_next(); 
+  }
 }
 
 void
 irq_remove(const struct irq_handle *handle)
 {
-  list_remove(irqs, handle);
+  list_remove(_irqs, handle);
 }
 
 static void
 adc_enable()
 {
-  vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE, E_AHI_AP_INT_ENABLE,
+  //vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE, E_AHI_AP_INT_ENABLE,
+  //                 E_AHI_AP_SAMPLE_8, E_AHI_AP_CLOCKDIV_500KHZ,
+  //                 E_AHI_AP_INTREF);
+  //
+  //
+
+  // nice and slow adc
+  vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE, E_AHI_AP_INT_DISABLE,
                    E_AHI_AP_SAMPLE_8, E_AHI_AP_CLOCKDIV_500KHZ,
                    E_AHI_AP_INTREF);
+
+  // make adc slower..
+  *(uint32 *)0x02001f00 |= 0xf000; // enable prescaler
 
   while(!bAHI_APRegulatorEnabled())
     ; /* wait until adc powered up */
 
-  adc_enabled = true;
 }
 
 static uint32_t
@@ -132,30 +195,21 @@ adc_prepare_next() {
   static struct irq_handle *item = NULL;
   u8_t i;
 
-  for(i=0; i < list_length(irqs); i++)
-  {
-    if (item == NULL)
-      item = list_head(irqs);
+  if (item == NULL)
+      item = list_head(_irqs);
 
-    if (item->irqsrc >= IRQ_ADC1 && item->irqsrc <= IRQ_ADC_VOLT)
-    {
+  // check if item is adc item
+  if (item->irqsrc >= IRQ_ADC1 && item->irqsrc <= IRQ_ADC_VOLT){
       current_channel = item->irqsrc;
 
       vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT,
                      item->adc_input_range,
                      to_adcsrc(item->irqsrc));
       vAHI_AdcStartSample();
-
+      // this item is currently sampled
+      last_item = item;
+      // this one will be the next to be checked
       item = item->next;
-      break;
-    }
-
-    item = item->next;
-  }
-
-  /* no more adc irq handles */
-  if (i == list_length(irqs))
-  {
-    adc_enabled = false;
-  }
+      // ASSUMPTION: if item has no next next == NULL
+   }
 }

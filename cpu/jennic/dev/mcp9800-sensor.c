@@ -56,17 +56,35 @@ static uint16_t res_factor = 1000/2;
 static uint16_t conf       = (CONF_REG<<8);
 
 /* shorthand for i2c function */
+// equivalent to the I2CW used in other sensors, should only be used when switching on and off
 #define mcp(r,n,w,m) i2cb(MCP_ADDR,n,m,w,r)
+
+
+static void mcp_cb(bool status)
+{
+    i2c(&mcp_txn);
+    sensors_changed(&temperature_sensor);
+}
+
+
+static i2c_t mcp_txn = {
+   .addr  = MCP_ADDR,
+   .cb    = mcp_cb,
+   .wrlen = 1,
+   .rdlen = 2,
+   .buf   = {0, 0}
+};
+
 
 static int
 value(int type)
   /* convert value into milli-celsius */
 {
-  uint16_t val = 0;
-  uint8_t c = TEMP_REG;
+  uint16_t val = *((uint16_t*)&mcp_txn.buf);
 
-  mcp(&c, sizeof(c), (uint8_t*) &val, sizeof(val));
-
+  //uint8_t c = TEMP_REG;
+  //mcp(&c, sizeof(c), (uint8_t*) &val, sizeof(val));
+  
   return  (val&(1<<15) ? -1 : 1)  *      /* sign */
          ((((val&0x7f00)>>8)*1000) +     /* decimal value */
           ((val&0xf0)>>4) * res_factor); /* mantissa */
@@ -87,13 +105,14 @@ configure(int type, int value)
       /* configuration will be be written by resolution configure */
       conf = (CONF_REG<<8);
       configure(MCP_CONFIGURE_RES, MCP_RES_12BIT);
+      mcp_cb(true);  
     } else {
       /* mcp pin will not be switched off to avoid side effects on the tsl2550
        * sensor which is connected on the same pin */
       conf = (CONF_REG<<8) | SHUTDOWN | (res&MCP_RES_12BIT);
       mcp(&conf, sizeof(conf), NULL, 0);
     }
-    return 1;
+    return true;
 
   case MCP_CONFIGURE_RES:
     switch(value) {

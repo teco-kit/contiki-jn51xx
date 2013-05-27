@@ -127,7 +127,7 @@ bool i;
 	} while (!status);
 	//14 bit value, last 2 LSB bytes are status and need to be zeroed
       	temperature_value = t.buf[0]<<8 | t.buf[1];
-	printf("checksum: %x\n", t.buf[2]);
+	//printf("checksum1: %x\n", t.buf[2]);
 	temperature_value = temperature_value & 0xfffc;
       	sensors_changed(&sht21_temperature_sensor);
     }

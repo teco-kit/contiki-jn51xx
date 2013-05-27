@@ -38,11 +38,22 @@
 #include <lib/list.h>
 #include <string.h>
 
+//***** from adc sampling (irq.c)
+#include "contiki.h"
+#include "dev/irq.h"
+#include "sensors.h"
+#define ADC_MAX     	4095
+#define VREF		1.20
+#define GAIN		3.85
+//*****
+//
+//
 #define I2C_10KHZ_SLOW_MODE (319)
 #define I2C_100KHZ_SLOW_MODE (31)
 #define I2C_400KHZ_FAST_MODE (7)
 
 #define DEBUG 0
+#define ADC_HACK 1
 
 LIST(transactions);
 
@@ -68,7 +79,19 @@ PROCESS_THREAD(i2c_process, ev, data)
 #if (DEBUG==1)
   static u32_t i2c_ticks;
 #endif
+#if (ADC_HACK==1)
+  static int dirty_i =0;
+  // nice and slow adc
+  vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE, E_AHI_AP_INT_DISABLE,
+                   E_AHI_AP_SAMPLE_2, E_AHI_AP_CLOCKDIV_2MHZ,
+                   E_AHI_AP_INTREF);
 
+  // make adc slower..
+  //*(uint32 *)0x02001f00 |= 0xf000; // enable prescaler
+
+  while(!bAHI_APRegulatorEnabled())
+    ; /* wait until adc powered up */
+#endif
   PROCESS_BEGIN();
 
   vAHI_SiRegisterCallback(i2c_irq);
@@ -148,6 +171,39 @@ PROCESS_THREAD(i2c_process, ev, data)
       printf("0x%x,", transaction->buf[i]);
     printf(")\n");
 #endif
+
+#if (ADC_HACK==1)
+    if(dirty_i==2000){
+      vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT,
+                     ADC_INPUT_RANGE_1,
+                     IRQ_ADC1);
+      vAHI_AdcStartSample();
+      // wait until complete
+      while(!bAHI_AdcPoll());
+      
+      float vADC, vTemp, rTemp;
+
+      //uint16_t adcOut;
+      //adcOut = u16AHI_AdcRead();
+      //printf("ADC val:%d\n",adcOut);
+      //vADC = adcOut * VREF / ADC_MAX;
+
+      vADC = u16AHI_AdcRead() * VREF / ADC_MAX;
+
+      vTemp = (vADC / 12.3) + 0.25023;
+      rTemp = 10000 / ((3/vTemp) - 1);
+      int _value = (int16_t) (1000 * (rTemp - 1000) / 3.85);
+      //_value = (u16AHI_AdcRead() * TEMP_FACTOR) + TEMP_MIN;
+      //_value = u16AHI_AdcRead();
+      //sensors_changed(&ext_temp_sensor);
+      printf("ext_temp_i2c: %d", _value);
+      printf("\n");
+      dirty_i=0;
+    }
+    dirty_i++;
+
+#endif
+
 
     if (transaction->cb) transaction->cb(i2c_status==SUCCESS);
   }

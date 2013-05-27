@@ -102,6 +102,7 @@ PT_THREAD(vcnlptcb(bool status))
   static i2c_t t = {.cb=vcnlptcb,
                     .addr=VCNL_ADDR,
                     .buf={0,0,0} };
+  static uint8_t res=0;
 
   /* 1. start a measurement of ambient light and proximity
    * 2. wait until measurement is there
@@ -128,19 +129,12 @@ PT_THREAD(vcnlptcb(bool status))
     } while (!(t.buf[1] & (1<<5)) &&
              !(t.buf[1] & (1<<6)));
 
+    res = t.buf[1];
+
     /* one of the measurments is complete,
      * store the result and ask for new measurment. */
-    if (t.buf[1] & (1<<6)) /* Ambient light */
-    {
-      t.rdlen  = 2;
-      t.wrlen  = 1;
-      t.buf[0] = VCNL_AMB_RES;
-      i2c(&t);
-      PT_YIELD(&vcnlpt);
-      ambient_light = (t.buf[1]<<8)|t.buf[2];
-      sensors_changed(&lightlevel_sensor);
-    }
-    else if (t.buf[1] & (1<<5))
+  
+    if (res & (1<<5))
     {
       t.rdlen  = 2;
       t.wrlen  = 1;
@@ -150,6 +144,21 @@ PT_THREAD(vcnlptcb(bool status))
       proximity = (t.buf[1]<<8)|t.buf[2];
       sensors_changed(&proximity_sensor);
     }
+  
+  
+  
+    // if (t.buf[1] & (1<<6)) /* Ambient light */
+    if (res & (1<<6)) /* Ambient light */
+    {
+      t.rdlen  = 2;
+      t.wrlen  = 1;
+      t.buf[0] = VCNL_AMB_RES;
+      i2c(&t);
+      PT_YIELD(&vcnlpt);
+      ambient_light = (t.buf[1]<<8)|t.buf[2];
+      sensors_changed(&lightlevel_sensor);
+    }
+    //else if (t.buf[1] & (1<<5))
   }
 
   PT_END(&vcnlpt);

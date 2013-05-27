@@ -15,10 +15,27 @@
 #include "dev/button-sensor.h"
 #include "dev/mag-sensor.h"
 #include "dev/acc-sensor.h"
+#include "dev/ext_temp_sensor.h"
+#include "dev/inttemp-sensor.h"
 #include "AppHardwareApi.h"
 
 PROCINIT(&etimer_process, &tcpip_process, &jennic_bootloader_process, &sensors_process);
-SENSORS(&lightlevel_sensor, &l3g4200d_sensor, &mag_sensor, &acc_sensor, &proximity_sensor, &temperature_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &button_sensor);
+
+//SENSORS(&lightlevel_sensor, &l3g4200d_sensor, &mag_sensor, &acc_sensor, &proximity_sensor, &temperature_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &button_sensor, &ext_temp_sensor);
+
+//SENSORS(&l3g4200d_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &button_sensor, &ext_temp_sensor);
+
+// lightlevel allein ... not activated
+// gyro allein .. activated aber liefert immer 0 0 0
+// mag allein .. activated aber liefert immer 0 0 0
+// accel allein .. not activated
+// proximity allein .. not activated, liefert aber einen wert immer 10023
+// temperature allein ... not activated
+
+SENSORS( &proximity_sensor, &lightlevel_sensor,  &pressure_sensor, &temperature_sensor, &l3g4200d_sensor,  &mag_sensor, &acc_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &ext_temp_sensor); //, &inttemp_sensor, &button_sensor);
+
+
+//SENSORS( &temperature_sensor, &ext_temp_sensor);
 
 void
 init_net(void)
