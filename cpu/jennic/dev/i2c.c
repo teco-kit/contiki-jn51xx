@@ -53,7 +53,7 @@
 #define I2C_400KHZ_FAST_MODE (7)
 
 #define DEBUG 0
-#define ADC_HACK 1
+#define ADC_HACK 0
 
 LIST(transactions);
 

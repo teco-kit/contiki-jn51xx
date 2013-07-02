@@ -32,7 +32,10 @@ PROCINIT(&etimer_process, &tcpip_process, &jennic_bootloader_process, &sensors_p
 // proximity allein .. not activated, liefert aber einen wert immer 10023
 // temperature allein ... not activated
 
-SENSORS( &proximity_sensor, &lightlevel_sensor,  &pressure_sensor, &temperature_sensor, &l3g4200d_sensor,  &mag_sensor, &acc_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &ext_temp_sensor); //, &inttemp_sensor, &button_sensor);
+//SENSORS( &proximity_sensor, &lightlevel_sensor,  &pressure_sensor, &temperature_sensor, &l3g4200d_sensor,  &mag_sensor, &acc_sensor, &sht21_humidity_sensor, &sht21_temperature_sensor, &ext_temp_sensor); //, &inttemp_sensor, &button_sensor);
+
+//SENSORS( &sht21_humidity_sensor, &sht21_temperature_sensor, &pressure_sensor); //, &inttemp_sensor, &button_sensor);
+SENSORS( &sht21_humidity_sensor, &sht21_temperature_sensor); //, &inttemp_sensor, &button_sensor);
 
 
 //SENSORS( &temperature_sensor, &ext_temp_sensor);
