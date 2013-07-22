@@ -40,6 +40,7 @@
 #include "dev/i2c.h"
 #include <stdbool.h>
 #include <AppHardwareApi.h>
+#include <math.h>
 
 #define SHT21_ADDR        0x80
 
@@ -52,7 +53,7 @@
 #define SHT21_START_TEMP  0xF3
 #define SHT21_SOFT_RESET 0xFE
 
-
+#define SHT21_TEMP_OFFSET -3000.0
 
 #define TEMPERATURE     0x01
 #define HUMIDITY        0x02
@@ -66,8 +67,10 @@ static struct {
 } __attribute((__packed__)) p;
 
 static u16_t humidity_value;
-
+static u16_t humidity_comp;
 static u16_t temperature_value;
+static u16_t temperature_comp;
+
 static u8_t  active = 0x00;
 
 static struct pt mplpt;
@@ -181,7 +184,8 @@ tvalue(int type)
   case SHT21_TEMPERATURE_VALUE_MILLICELSIUS:
     /* original formula with floats:
      *  -46.85 + 175.72 * val * 2^16*/
-	return (-46.850 + 175.720 * (float)temperature_value / 65536.0 ) *1000.0;
+	temperature_comp = ((-46.850 + 175.720 * (float)temperature_value / 65536.0 ) *1000.0);
+        return (int)(temperature_comp + SHT21_TEMP_OFFSET);
   }
 
   return 0;
@@ -229,8 +233,11 @@ pvalue(int type)
    */
   switch(type) {
   case SHT21_HUMIDITY_VALUE_PERCENT:
-  	return (-6 + 125 * humidity_value / 65536);
-	}
+  	humidity_comp = (-6 + 125 * humidity_value / 65536);
+	return (int)(humidity_comp*exp(-4283.78*(SHT21_TEMP_OFFSET)/(243.12+temperature_comp)/(243.12+temperature_comp+SHT21_TEMP_OFFSET)));
+  }
+
+  return 0;
 
 }
 
