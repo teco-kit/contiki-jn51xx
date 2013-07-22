@@ -42,10 +42,11 @@ extern const struct sensors_sensor ext_temp_sensor;
 #define EXT_TEMP_SENSOR "external temperature"
 #define EXT_TEMPERATURE_VALUE_MILLICELSIUS 0x19
 
-//#define EXT_TEMPERATURE_VALUE_MILLICELSIUS 0x19
-#define SENSORS_HW_EXT1 0xa1
-#define SENSORS_HW_EXT2 0xa2
-#define SENSORS_HW_OFF 0xa0
+#define SENSORS_HW_EXT1    0xa1
+#define SENSORS_HW_EXT2    0xa2
+#define SENSORS_HW_EXT3    0xa3
+#define SENSORS_HW_EXT_REF 0xa4
+#define SENSORS_HW_OFF     0xa0
 
 
 
